@@ -1,1 +1,10 @@
-test
+README
+
+The experiments of the "4.3. Performance and scalability of the implementation" were conducted using the files below, which are stored in the multigpu server: 
+
+/home/wellington/luna_files
+-rwxr-x--- 1 wellington luna_files  527916430 May  9  2023 luna_k5_f20_2500000.dat
+-rwxr-x--- 1 wellington luna_files 1051671925 May 15  2023 luna_k5_f20_5000000.dat
+-rwxr-x--- 1 wellington luna_files 1478074032 May 15  2023 luna_k7_f20_7000000.dat
+-rwxr-x--- 1 wellington luna_files 1899064358 May 15  2023 luna_k9_f20_9000000.dat
+-rwxr-x--- 1 wellington luna_files 2317578781 May 15  2023 luna_k11_f20_11000000.dat
