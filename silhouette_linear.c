@@ -5,24 +5,22 @@
 #include <time.h>
 
 // define o nome do dataset, quantidade de clusters, features e instancias
-#define DATASET "digits_k9_f64_1797s.dat"
-#define NUM_CLUSTERS 9
-#define NUM_FEATURES 64
-#define MAX_INSTANCES 1797
-
-
+#define DATASET "/home/wellington/luna_files/luna_k5_f20_2500000.dat"
+#define NUM_CLUSTERS 5
+#define NUM_FEATURES 20
+#define MAX_INSTANCES 2500000
 
 typedef struct {
-    double features[NUM_FEATURES];
+    float features[NUM_FEATURES];
     int cluster;
 } Instance;
 
 typedef struct {
-    double features[NUM_FEATURES];
+    float features[NUM_FEATURES];
 } Centroid;
 
 
-void calculate_centroids(Instance *instances, int num_instances, Centroid *centroids) {
+void calculate_centroids(Instance *instances, int num_instances, Centroid *centroids, int * cluster_size ) {
     memset(centroids, 0, NUM_CLUSTERS * sizeof(Centroid));
     int cluster_sizes[NUM_CLUSTERS] = {0};
 
@@ -33,7 +31,6 @@ void calculate_centroids(Instance *instances, int num_instances, Centroid *centr
         }
         cluster_sizes[cluster]++;
     }
-
     
     for (int i = 0; i < NUM_CLUSTERS; i++) {
         for (int j = 0; j < NUM_FEATURES; j++) {
@@ -42,30 +39,30 @@ void calculate_centroids(Instance *instances, int num_instances, Centroid *centr
     }
 }
 
-void calculate_general_centroid_from_centroids(Centroid *centroids, Centroid *general_centroid) {
+void calculate_general_centroid_from_centroids(Centroid *centroids, Centroid *general_centroid, Instance * instances) {
     
     memset(general_centroid, 0, sizeof(Centroid));
 
     
-    for (int i = 0; i < NUM_CLUSTERS; i++) {
+    for (int i = 0; i < MAX_INSTANCES; i++) {
         for (int j = 0; j < NUM_FEATURES; j++) {
-            general_centroid->features[j] += centroids[i].features[j];
+            general_centroid->features[j] += instances[i].features[j];
         }
     }
 
     
     for (int j = 0; j < NUM_FEATURES; j++) {
-        general_centroid->features[j] /= NUM_CLUSTERS;
+        general_centroid->features[j] /= MAX_INSTANCES;
     }
 }
 
-double calculate_interMean(Centroid *centroids, Centroid *general_centroid) {
-    double interMean = 0.0;
+float calculate_interMean(Centroid *centroids, Centroid *general_centroid) {
+    float interMean = 0.0;
 
     for (int i = 0; i < NUM_CLUSTERS; i++) {
-        double dist = 0.0;
+        float dist = 0.0;
         for (int j = 0; j < NUM_FEATURES; j++) {
-            double diff = centroids[i].features[j] - general_centroid->features[j];
+            float diff = centroids[i].features[j] - general_centroid->features[j];
             dist += diff * diff;
         }
         interMean += sqrt(dist);
@@ -76,14 +73,14 @@ double calculate_interMean(Centroid *centroids, Centroid *general_centroid) {
     return interMean;
 }
 
-double calculate_intraMean(Instance *instances, int num_instances, Centroid *centroids) {
-    double intraMean = 0.0;
+float calculate_intraMean(Instance *instances, int num_instances, Centroid *centroids) {
+    float intraMean = 0.0;
 
     for (int i = 0; i < num_instances; i++) {
         Centroid cluster_centroid = centroids[instances[i].cluster];
-        double dist = 0.0;
+        float dist = 0.0;
         for (int j = 0; j < NUM_FEATURES; j++) {
-            double diff = instances[i].features[j] - cluster_centroid.features[j];
+            float diff = instances[i].features[j] - cluster_centroid.features[j];
             dist += diff * diff;
         }
         intraMean += sqrt(dist);
@@ -94,44 +91,10 @@ double calculate_intraMean(Instance *instances, int num_instances, Centroid *cen
     return intraMean;
 }
 
-double calculate_BDSilhouette(double interMean, double intraMean) {
-    double maxMean = interMean > intraMean ? interMean : intraMean;
-    double BDSilhouette = (interMean - intraMean) / maxMean;
+float calculate_BDSilhouette(float interMean, float intraMean) {
+    float maxMean = interMean > intraMean ? interMean : intraMean;
+    float BDSilhouette = (interMean - intraMean) / maxMean;
     return BDSilhouette;
-}
-
-int read_dataset(const char *filename, Instance *instances) {
-    int clusters, features, cluster_size[NUM_CLUSTERS], size = 0, i;
-    
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        printf("Não foi possível abrir o arquivo %s\n", filename);
-        return -1;
-    }
-
-    fscanf(file, "%d %d", &clusters, &features); 
-
-    for (int k = 0; k < clusters; k++) {
-        fscanf(file, "%d", &cluster_size[k]);
-        size = size + cluster_size[k];
-    }
-
-    int k = 0;
-    int atual = cluster_size[0];
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < features; j++) {
-            fscanf(file, "%lf   ", &instances[i].features[j]);
-        }
-
-        instances[i].cluster = k;
-        if(atual-1 == i){
-                k++;
-                atual += cluster_size[k];
-        }
-    }
-
-    fclose(file);
-    return size;
 }
 
 void print_instance(Instance instance) {
@@ -163,34 +126,66 @@ void print_centroid(Centroid centroid) {
 int main() {
     clock_t start, end;
     double cpu_time_used;
+    int clusters, features, cluster_size[NUM_CLUSTERS], size = 0, i;
 
     Instance* instances = (Instance*) malloc(MAX_INSTANCES * sizeof(Instance));
     Centroid centroids[NUM_CLUSTERS], general_centroid;
+    
+   
+    FILE *file = fopen(DATASET, "r");
+    if (file == NULL) {
+        printf("Não foi possível abrir o arquivo %s\n", DATASET);
+        return -1;
+    }
 
+    fscanf(file, "%d %d", &clusters, &features); 
 
-    int num_instances = read_dataset(DATASET, instances);
-    if (num_instances < 0) {
+    for (int k = 0; k < NUM_CLUSTERS; k++) {
+        fscanf(file, "%d", &cluster_size[k]);
+        size = size + cluster_size[k];
+    }
+
+    int k = 0;
+    int atual = cluster_size[0];
+    for (int i = 0; i < size; i++) {
+        for (int j = 0; j < NUM_FEATURES; j++) {
+            fscanf(file, "%f,", &instances[i].features[j]);
+        }
+
+        instances[i].cluster = k;
+        if(atual-1 == i){
+                k++;
+                atual += cluster_size[k];
+        }
+    }
+
+    fclose(file);
+
+    if (size < 0) {
         printf("Erro ao ler o dataset\n");
         return -1;
     }
-    start = clock();
-
-    calculate_centroids(instances, num_instances, centroids);
-
+     start = clock();
+    calculate_centroids(instances, size, centroids, cluster_size);
     
-    calculate_general_centroid_from_centroids(centroids, &general_centroid);
-    end = clock();
+    calculate_general_centroid_from_centroids(centroids, &general_centroid, instances);
+    
     print_centroid(general_centroid);
     print_centroids(centroids);
 
-    double interMean = calculate_interMean(centroids, &general_centroid);
-    printf("InterMean: %lf\n", interMean);
+    float interMean = calculate_interMean(centroids, &general_centroid);
+    
 
-    double intraMean = calculate_intraMean(instances, num_instances, centroids);
-    printf("IntraMean: %lf\n", intraMean);
+    float intraMean = calculate_intraMean(instances, size, centroids);
+    
 
-    double BDSilhouette = calculate_BDSilhouette(interMean, intraMean);
-    printf("BD-Silhouette: %lf\n", BDSilhouette);
+    float BDSilhouette = calculate_BDSilhouette(interMean, intraMean);
+    
+    end = clock();
+    printf("InterMean: %f\n", interMean);
+    printf("IntraMean: %f\n", intraMean);
+    printf("BD-Silhouette: %f\n", BDSilhouette);
+    
     free(instances);
 
 
@@ -200,6 +195,3 @@ int main() {
 
     return 0;
 }
-
-
-
